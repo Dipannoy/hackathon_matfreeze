@@ -31,4 +31,4 @@ uv pip install einops --upgrade
 
 Finall try with:
 
-python multimat.py --data_path ./example_data --modalities_encoders crystal dos --exp 'pretrain'
+python multimat.py --data_path ./example_data --modalities_encoders crystal dos --exp 'pretrain2'
