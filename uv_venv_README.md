@@ -5,7 +5,10 @@ git clone https://github.com/Dipannoy/hackathon_matfreeze.git
 uv venv --python 3.10 .venv
 
 source /workspace/multimat_project/software/.venv/bin/activate
-or source .venv/bin/activate
+
+or if you are already in the folder do
+
+source .venv/bin/activate
 
 uv pip install -r requirements.txt
 
