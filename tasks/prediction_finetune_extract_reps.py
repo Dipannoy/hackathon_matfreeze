@@ -178,7 +178,8 @@ def save_representations(modalities_encoders, encoders, data_loader, epoch, save
     save_path = os.path.join(save_dir, f'representations_epoch{epoch}.pt')
     torch.save(representations_dict, save_path)
     print(f"Saved representations for epoch {epoch} to {save_path}")
-    print(f"Shapes: {{{k}: {v.shape} for k, v in representations_dict.items()}}")
+    shapes_str = {k: v.shape for k, v in representations_dict.items()}
+    print(f"Shapes: {shapes_str}")
     
     return representations_dict
 
@@ -817,8 +818,8 @@ def main_worker(gpu,args):
                 
                 print(f"{'='*70}\n")
                 
-            except Exception as e:
-                print(f"Warning: Failed to save representations: {str(e)}")
+            except Exception as exc:
+                print(f"Warning: Failed to save representations: {str(exc)}")
                 import traceback
                 traceback.print_exc()
 
