@@ -3,3 +3,9 @@ __pycache__/
 .DS_Store/
 bash_scripts/
 .DS_Store
+
+ft_saved_models/
+ft_logs/
+checkpoints/
+tasks/.ipynb_checkpoints/
+.ipynb_checkpoints/
