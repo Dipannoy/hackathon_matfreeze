@@ -122,7 +122,7 @@ parser.add_argument('--file_to_modalities_dicts', type=str, default=None)
 parser.add_argument('--eval_over_100', action='store_true')
 parser.add_argument('--use_old_split', action='store_true')
 
-def save_representations(modalities_encoders, encoders, data_loader, epoch, save_dir, device, crystal_arch='potnet',counter=0):
+def save_representations(modalities_encoders, encoders, data_loader, epoch, save_dir, device, crystal_arch='potnet'):
     """
     Extract and save representations for all data points.
     
@@ -141,14 +141,13 @@ def save_representations(modalities_encoders, encoders, data_loader, epoch, save
     
     # Store representations for each modality
     representations_dict = {modality: [] for modality in modalities_encoders}
-    material_ids_list = []
-    print('------------------------modalities encoders--------------------')
-    print(modalities_encoders)
-    print('----------------------------encoders---------------------------')
-    print(encoders)
     
+    print(f"Extracting representations from {len(data_loader)} batches...")
     with torch.no_grad():
         for batch_idx, data in enumerate(data_loader):
+            if batch_idx % 50 == 0:  # Progress indicator
+                print(f"Processing batch {batch_idx}/{len(data_loader)}")
+                
             # Handle different architectures
             if crystal_arch == 'cgcnn':
                 for modality in modalities_encoders:
@@ -174,16 +173,19 @@ def save_representations(modalities_encoders, encoders, data_loader, epoch, save
                     representations_dict[modality].append(embeddings.cpu())
     
     # Concatenate all batches
+    print("Concatenating all batches...")
     for modality in modalities_encoders:
         representations_dict[modality] = torch.cat(representations_dict[modality], dim=0)
     
     # Save representations
     os.makedirs(save_dir, exist_ok=True)
-    save_path = os.path.join(save_dir, f'representations_epoch{epoch}_{counter}.pt')
+    save_path = os.path.join(save_dir, f'representations_epoch{epoch}.pt')
     torch.save(representations_dict, save_path)
-    print(f"Saved representations for epoch {epoch} to {save_path}")
+    
+    print(f"✓ Saved representations for epoch {epoch} to {save_path}")
     shapes_str = {k: v.shape for k, v in representations_dict.items()}
-    print(f"Shapes: {shapes_str}")
+    print(f"✓ Shapes: {shapes_str}")
+    print(f"✓ Total samples saved: {list(representations_dict.values())[0].shape[0]}")
     
     return representations_dict
 
@@ -569,11 +571,6 @@ def main_worker(gpu,args):
     # training
     best_loss_dict ={}
     save_best = {}
-    # if args.distribute:
-    rep_device = gpu
-    # else:
-    #     rep_device = device if 'device' in locals() else gpu
-    rep_base_dir = args.checkpoint_dir / 'representations'
     for modality in args.modalities_encoders:
         best_loss_dict[modality] = 999999
     
@@ -659,17 +656,6 @@ def main_worker(gpu,args):
                         for modality in args.modalities_encoders:
                             z = encoders[modality](data[modality])
                             embeddings[modality] = z
-                            if  (e == 1 or e == args.epochs):
-                                train_reps = save_representations(
-                                    modalities_encoders=args.modalities_encoders,
-                                    encoders=encoders,
-                                    data_loader=data,
-                                    epoch=e,
-                                    save_dir=str(rep_base_dir / 'train'),
-                                    device=rep_device,
-                                    crystal_arch=args.crystal_arch,
-                                    counter=step,
-                                )
                             # print(z.shape)
                         # loss functions for different decoders
                         # loss_func_tasks = {'dos': F.mse_loss, 'bandgap': F.mse_loss, 'eform': F.mse_loss, 'efermi': F.mse_loss, 
@@ -784,64 +770,64 @@ def main_worker(gpu,args):
                 wandb.log(metrics_wandb)
 
         # save representation at first and last epoch
-        # if args.rank == 0 and (e == 1 or e == args.epochs):
-        #     print(f"\n{'='*70}")
-        #     print(f"SAVING REPRESENTATIONS FOR EPOCH {e}")
-        #     print(f"{'='*70}\n")
+        if args.rank == 0 and (e == 1 or e == args.epochs):
+            print(f"\n{'='*70}")
+            print(f"SAVING REPRESENTATIONS FOR EPOCH {e}")
+            print(f"{'='*70}\n")
             
-        #     # Determine device
-        #     if args.distribute:
-        #         rep_device = gpu
-        #     else:
-        #         rep_device = device if 'device' in locals() else gpu
+            # Determine device
+            if args.distribute:
+                rep_device = gpu
+            else:
+                rep_device = device if 'device' in locals() else gpu
             
-        #     # Create directory for saving
-        #     rep_base_dir = args.checkpoint_dir / 'representations'
+            # Create directory for saving
+            rep_base_dir = args.checkpoint_dir / 'representations'
             
-        #     try:
-        #         # Save representations on training set
-        #         print("Extracting training set representations...")
-        #         train_reps = save_representations(
-        #             modalities_encoders=args.modalities_encoders,
-        #             encoders=encoders,
-        #             data_loader=train_loader,
-        #             epoch=e,
-        #             save_dir=str(rep_base_dir / 'train'),
-        #             device=rep_device,
-        #             crystal_arch=args.crystal_arch
-        #         )
+            try:
+                # Save representations on training set
+                print("Extracting training set representations...")
+                train_reps = save_representations(
+                    modalities_encoders=args.modalities_encoders,
+                    encoders=encoders,
+                    data_loader=train_loader,
+                    epoch=e,
+                    save_dir=str(rep_base_dir / 'train'),
+                    device=rep_device,
+                    crystal_arch=args.crystal_arch
+                )
                 
-        #         # Save representations on test set
-        #         print("Extracting test set representations...")
-        #         test_reps = save_representations(
-        #             modalities_encoders=args.modalities_encoders,
-        #             encoders=encoders,
-        #             data_loader=test_loader,
-        #             epoch=e,
-        #             save_dir=str(rep_base_dir / 'test'),
-        #             device=rep_device,
-        #             crystal_arch=args.crystal_arch
-        #         )
+                # Save representations on test set
+                print("Extracting test set representations...")
+                test_reps = save_representations(
+                    modalities_encoders=args.modalities_encoders,
+                    encoders=encoders,
+                    data_loader=test_loader,
+                    epoch=e,
+                    save_dir=str(rep_base_dir / 'test'),
+                    device=rep_device,
+                    crystal_arch=args.crystal_arch
+                )
                 
-        #         # Optionally save on validation set
-        #         if 'val_loader' in locals() and val_loader is not None:
-        #             print("Extracting validation set representations...")
-        #             val_reps = save_representations(
-        #                 modalities_encoders=args.modalities_encoders,
-        #                 encoders=encoders,
-        #                 data_loader=val_loader,
-        #                 epoch=e,
-        #                 save_dir=str(rep_base_dir / 'val'),
-        #                 device=rep_device,
-        #                 crystal_arch=args.crystal_arch
-        #             )
+                # Optionally save on validation set
+                if 'val_loader' in locals() and val_loader is not None:
+                    print("Extracting validation set representations...")
+                    val_reps = save_representations(
+                        modalities_encoders=args.modalities_encoders,
+                        encoders=encoders,
+                        data_loader=val_loader,
+                        epoch=e,
+                        save_dir=str(rep_base_dir / 'val'),
+                        device=rep_device,
+                        crystal_arch=args.crystal_arch
+                    )
                 
-        #         print(f"{'='*70}\n")
+                print(f"{'='*70}\n")
                 
-        #     except Exception as exc:
-        #         print(f"Warning: Failed to save representations: {str(exc)}")
-        #         import traceback
-        #         traceback.print_exc()
+            except Exception as exc:
+                print(f"Warning: Failed to save representations: {str(exc)}")
+                import traceback
+                traceback.print_exc()
 
         
         
